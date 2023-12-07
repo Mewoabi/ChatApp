@@ -34,7 +34,7 @@ function setUiEventListeners(chatRoom) {
         else{
             console.log(message.value)
             chatRoom.sendChat (message.value); 
-            chatRoom.addChat(message.value);
+            // chatRoom.addChat(message.value);
             message.value = '';
         }
     })
@@ -53,9 +53,11 @@ function setUiEventListeners(chatRoom) {
     chatList.addEventListener('click', e => {
         e.preventDefault()
         if(e.target.tagName === 'I') {
-            console.log(e.target.parentElement.dataset.id)
-            chatRoom.removeDoc(e.target.parentElement.dataset.id);
-            e.target.parentElement.remove();
+            chatRoom.removeDoc(e.target.parentElement.dataset.id)
+                .then (() => {
+                     console.log("doc removed (in ui.js)")
+                })
+                    .catch(e => consol.log(e))
         }
     })
  

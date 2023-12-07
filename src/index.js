@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app'
 
-import { getFirestore, collection, doc, getDocs, addDoc, deleteDoc, onSnapshot, query, where, setDoc, orderBy, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDocs, addDoc, deleteDoc, onSnapshot, query, where, setDoc, orderBy, serverTimestamp, arrayUnion, Timestamp } from 'firebase/firestore';
 
-import { getAuth, createUserWithEmailAndPassword, signOut, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth'
+import { getAuth, createUserWithEmailAndPassword, signOut, signInWithEmailAndPassword, onAuthStateChanged, revokeAccessToken } from 'firebase/auth'
 
 import { formatDistanceToNow } from 'date-fns';
 //importing other modules 
@@ -25,8 +25,7 @@ const auth = getAuth();
 
 
 //creating a reference to the collection  
-const chatList = document.querySelector('.chatList');
-console.log(chatList, chatList.innerHTML)
+const chatList = document.querySelector('.chatList'); 
 
 
 const createListItem = (item) => {
@@ -39,8 +38,14 @@ const createListItem = (item) => {
                     <i style="position: absolute; right: 5px; top: 5px; cursor: pointer" class="bi bi-trash-fill"></i>`;
   chatList.prepend(li);
 }
-
-
+ const removeListItem = ( chatId ) => {
+    chatList.childNodes.forEach(node =>  {
+      if (node.dataset.id === chatId) {
+        node.remove();
+      }
+    })
+     
+ }
 
 
 class ChatRoom {
@@ -61,60 +66,55 @@ class ChatRoom {
   }
 
   //getting all the chats 
-  async getChats() {
+   getChats() {
     chatList.innerHTML = '';
     console.log("getting the chats")
     const q = query(this.chats, where("room", "==", this.room), orderBy('createdAt', 'asc'));
-    let chats = [];
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach((doc) => {
-      const chat = { id: doc.id, ...doc.data() };
-      chats.push(chat);
-      createListItem(chat);
-    });
-    console.log(chats)
+    onSnapshot(q, (snapshot) => {
+      console.log("in the snapshot");
+       snapshot.docChanges().forEach(change => {
+        const doc = change.doc; 
+        const chat = ({ ...doc.data(), id: doc.id, change: change.type });
+        if(change.type == 'added') {
+          createListItem(chat);
+        }
+        if(change.type == 'removed'){
+            console.log("doc with id of ", doc.id, " has been removed");
+            removeListItem(doc.id)
+        }
+       })
+    })
+    // chatList.childNodes.forEach(node => console.log( node));
   }
-
-  addChat (message) {
-    const chat =   {
-      message,
-      author: this.username,
-      room: this.room,
-      createdAt: { seconds: new Date().getTime()/1000 }
-    };
-    createListItem(chat);
-    console.log(chat);
-  }
-
+ 
 
   //function to add a chat
-  async sendChat(message) {
-    try {
+  sendChat(message) {
       if (!this.username) {
         showAlert("Oops you have to enter a username");
       }
       else if (!message) {
         showAlert("enter message")
       } else {
+        const timestamp = Timestamp.now();
         console.log("trying to addbook")
-        const docRef = await addDoc(this.chats, {
+        addDoc(this.chats, {
           message,
           author: this.username,
           room: this.room,
-          createdAt: serverTimestamp()
-        });
-        console.log("Document written with ID: ", docRef.id);
-      }
-    } catch (e) {
-      console.error("Error adding document: ", e);
-    }
-
+          createdAt: timestamp
+        })
+          .then((docRef) => {
+            console.log("Document written with ID: ", docRef.id);
+          })
+            .catch(e => console.error("Error adding document: ", e) )
+       
+      } 
   }
 
   //deleting a chat
   async removeDoc(docID) {
-    const deletedDocID = await deleteDoc(doc(this.chats, docID));
-    console.log("doc with the id of ", deletedDocID, " has been deleted from database");
+    deleteDoc(doc(this.chats, docID)).then( () => console.log("deleted a doc (in index.js)"));
   }
 
 }
